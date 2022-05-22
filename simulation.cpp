@@ -7,26 +7,26 @@ using namespace std;
 
 class Agent {       
     public:
-        int startMoney;     
+        unsigned long long int startMoney;     
         int ZorNothing;      // Could be double or nothing, triple or nothing etc. This will be used as the bet progression.
                                 // If equal to zero, fibonacci, if equal to 1, single bets, if equal to startMoney, all in.
         double winRate;
-        long long int currMoney;
-        long long int maxMoney[2];        // [Amount of bets needed to get to maxMoney, the maxMoney value]
-        long long int betsPlaced;         // Total amount of bets placed before termination
-        long long int prevBetAmount;   // This is only for fibonacci sequence as prevBetAmount is needed
-        long long int currBetAmount;  // Starts off as 1, then depending on ZorNothing, will progress
+        unsigned long long int currMoney;
+        unsigned long long int maxMoney[2];        // [Amount of bets needed to get to maxMoney, the maxMoney value]
+        unsigned long long int betsPlaced;         // Total amount of bets placed before termination
+        unsigned long long int prevBetAmount;   // This is only for fibonacci sequence as prevBetAmount is needed
+        unsigned long long int currBetAmount;  // Starts off as 1, then depending on ZorNothing, will progress
         string whenToStop;
         bool hasAchievedGoal;
 
         bool simulateCoinFlip();
 
-        double placeBet(long int betAmount);
+        bool placeBet(unsigned long long int betAmount);
 
         void agentGamble();
 
         void agentGambleScenario();
-        Agent(long int startM, int betting, double winR, string stoppingTime) {
+        Agent(unsigned long long int startM, int betting, double winR, string stoppingTime) {
             startMoney = startM;
             ZorNothing = betting;
             winRate = winR;
@@ -56,16 +56,18 @@ bool Agent::simulateCoinFlip() {
     }
 }
 
-double Agent::placeBet(long int betAmount) {
+bool Agent::placeBet(unsigned long long int betAmount) {
     ++betsPlaced;
-    long int winLossAmount = betAmount;
+    unsigned long long int winLossAmount = betAmount;
     // it will either return +moneyPlaced or -moneyPlaced
     if (!simulateCoinFlip()){
         // This means that they lost the bet
-        winLossAmount *= -1;
+        currMoney -= winLossAmount;
+        return false;
+    } else {
+        currMoney += winLossAmount;
+        return true;
     }
-    currMoney += winLossAmount;
-    return winLossAmount;
 }
 
 
@@ -74,7 +76,7 @@ void Agent::agentGamble() {
     if (currBetAmount > currMoney) {
         // For fibonacci                
         if (ZorNothing == 0) {
-            long int tmp = currBetAmount;
+            unsigned long long int tmp = currBetAmount;
             // This is the formula for 2 places back on the fibonacci sequence
             currBetAmount = currBetAmount - prevBetAmount;
             // This is the formula for 3 places back on the fibonacci sequence
@@ -86,12 +88,13 @@ void Agent::agentGamble() {
         }
 
     }
-    long int winLossAmount;
+
+    bool didWin;
     // This means that the agent will gamble all their money every time
     if (ZorNothing == startMoney) {
-        winLossAmount = placeBet(currMoney);
+        didWin = placeBet(currMoney);
     } else {
-        winLossAmount = placeBet(currBetAmount);
+        didWin = placeBet(currBetAmount);
     }
 
 
@@ -100,7 +103,7 @@ void Agent::agentGamble() {
         maxMoney[1] = currMoney;
     }
 
-    if (winLossAmount < 0) {
+    if (didWin == false) {
         // If the agent lost the bet, do something depending on zor
         if (ZorNothing == 0) {
             // This means fibonacci
@@ -155,12 +158,13 @@ void Agent::agentGambleScenario() {
 // This will calculate the probability of doubling your money for each x value.
 // Each x values represents how many times you can lose in a row while still having money
 // E.g if x = 5 that means you have 2^5 dollars.
-void calculateProbabilityOfDoublingForEachX(int startX, int endX, int ZorNothing, int repeats) {
+void calculateProbabilityOfDoublingForEachX(int startX, int endX, int ZorNothing, int repeats, double probOfWin) {
     std::ofstream MyFile("dataset_test/probability_of_doubling_with" + to_string(ZorNothing) + "_from_"
-    + to_string(startX) + "_to_" + to_string(endX) + "_with_" + to_string(repeats) + "_repeats");
+    + to_string(startX) + "_to_" + to_string(endX) + "_with_" + to_string(repeats) + "_repeats_"
+    + to_string(probOfWin) + "_probOfWin");
     MyFile << "x_val,probability\n";
     for(;startX <= endX; startX++) {
-        unsigned long long int totalWins = 0;
+        long int totalWins = 0;
         for (int i=0; i < repeats; i++) {
             unsigned long long int money = pow(2, startX);
             Agent myAgent(money,ZorNothing,50.0, "doubled");
@@ -171,16 +175,24 @@ void calculateProbabilityOfDoublingForEachX(int startX, int endX, int ZorNothing
             myAgent.resetVals();
         }
         double percentage_won = double(totalWins)/double(repeats);
-        std::cout << percentage_won << "\n";
+        // std::cout << totalWins << "," << repeats <<"\n";
         MyFile << startX << "," << percentage_won << "\n";
     }
 }
+
+void calcDiffProbOfWinProbOfDoublForEach(int startX, int endX, int ZorNothing,int repeats, double startProbWin, double endProbWin) {
+    for (; startProbWin <= endProbWin; startProbWin += 10.0) {
+        calculateProbabilityOfDoublingForEachX(startX, endX, ZorNothing,repeats, startProbWin);
+    }
+}
+
 
 int main (void) {
     // Create a random seed
     srand( (unsigned)time(NULL) );
 
-    calculateProbabilityOfDoublingForEachX(1, 20, 2, 100);
+    // calculateProbabilityOfDoublingForEachX(1, 15, 2, 100000);
+    calcDiffProbOfWinProbOfDoublForEach(1,15,2,800000,30,70);
     return 0;
 }
 
